@@ -57,7 +57,7 @@ const brainImage = (() => {
 
 const gameCanvas = document.getElementById("game-main-canvas");
 const gameCanvasContext = gameCanvas.getContext("2d");
-const maxTime = 15;
+const maxTime = 45;
 const maxLife = 5;
 const cooldownTime = 2;
 const updateRate = 60;
