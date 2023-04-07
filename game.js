@@ -63,9 +63,7 @@ const cooldownTime = 2;
 const updateRate = 60;
 const objGenRate = 20;
 const cnmcX = 400;
-const cnmcY = 400;
-const beamX = 400;
-const beamY = 750;
+const cnmcY = 350;
 
 function rotateCoor(x, y, r) {
     return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
@@ -137,6 +135,8 @@ let life = maxLife;
 let gameStarted = false;
 let gameStartTime = Date.now();
 let brainAngle = 0;
+let beamX = 400;
+let beamY = 750;
 
 let lastGameEnd = null;
 
@@ -263,11 +263,11 @@ addEventListener("click", e => {
         // update everything
         {
             // removed old objects
-            while (gameFactObjs.length > 0 && (gameFactObjs[0][4] > 500)) {
+            while (gameFactObjs.length > 0 && (gameFactObjs[0][4] > 350)) {
                 gameFactObjs.shift();
             }
 
-            while (gameNegObjs.length > 0 && (gameNegObjs[0][3] > 500)) {
+            while (gameNegObjs.length > 0 && (gameNegObjs[0][3] > 350)) {
                 gameNegObjs.shift();
             }
 
@@ -296,7 +296,7 @@ addEventListener("click", e => {
                         ];
                         rectPoints.forEach(point => {
                             if (factObj[5]) {
-                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), factObj[0]-beamX, beamY-factObj[1]))) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), factObj[0] - beamX, beamY - factObj[1]))) {
                                     factObj[5] = false;
                                     score += 1;
                                 }
@@ -315,7 +315,7 @@ addEventListener("click", e => {
                         ];
                         rectPoints.forEach(point => {
                             if (negObj[4]) {
-                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), negObj[0]-beamX, beamY-negObj[1]))) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), negObj[0] - beamX, beamY - negObj[1]))) {
                                     negObj[4] = false;
                                     life -= 1;
                                 }
