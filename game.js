@@ -49,6 +49,12 @@ const greenImage = (() => {
     return image;
 })();
 
+const brainImage = (() => {
+    let image = new Image();
+    image.src = "brain.png";
+    return image;
+})();
+
 const gameCanvas = document.getElementById("game-main-canvas");
 const gameCanvasContext = gameCanvas.getContext("2d");
 const maxTime = 15;
@@ -56,6 +62,10 @@ const maxLife = 5;
 const cooldownTime = 2;
 const updateRate = 60;
 const objGenRate = 20;
+const cnmcX = 400;
+const cnmcY = 400;
+const beamX = 400;
+const beamY = 750;
 
 function rotateCoor(x, y, r) {
     return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
@@ -151,12 +161,12 @@ addEventListener("click", e => {
     let objGenIntervalHandle = setInterval(() => {
         // randomly spawn objects
         if (Math.random() < 0.5) {
-            let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), 0, true];
+            let newObject = [cnmcX, cnmcY, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), 0, true];
             gameFactObjs.push(newObject);
         }
 
         if (Math.random() < 0.08) {
-            let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), true];
+            let newObject = [cnmcX, cnmcY, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), true];
             gameNegObjs.push(newObject);
         }
     }, 1000 / objGenRate);
@@ -169,7 +179,6 @@ addEventListener("click", e => {
 
             // draw texts
             gameCanvasContext.save();
-            gameCanvasContext.translate(400, 400);
             gameCanvasContext.strokeStyle = "rgb(255,30,20)";
             gameCanvasContext.fillStyle = "rgb(255,30,20)";
             gameCanvasContext.font = "30px monospace";
@@ -177,6 +186,7 @@ addEventListener("click", e => {
             gameFactObjs.forEach(factObj => {
                 if (factObj[5]) {
                     gameCanvasContext.save();
+                    gameCanvasContext.translate(factObj[0], factObj[1]);
                     // prevent text from being upside down
                     if (factObj[2] < Math.PI / 2 || Math.PI * 3 / 2 < factObj[2]) {
                         gameCanvasContext.rotate(-factObj[2]);
@@ -188,6 +198,7 @@ addEventListener("click", e => {
                     gameCanvasContext.restore();
 
                     gameCanvasContext.save();
+                    gameCanvasContext.translate(factObj[0], factObj[1]);
                     gameCanvasContext.rotate(-factObj[2]);
                     gameCanvasContext.strokeRect(-2, -factObj[4] + 1, 18 * factLength[factObj[3]] + 4, -32);
                     gameCanvasContext.restore();
@@ -197,13 +208,13 @@ addEventListener("click", e => {
 
             // draw snacks
             gameCanvasContext.save();
-            gameCanvasContext.translate(400, 400);
-            gameCanvasContext.scale(1 / 3, 1 / 3);
             gameCanvasContext.strokeStyle = "rgb(20,255,60)";
             gameCanvasContext.lineWidth = 5;
             gameNegObjs.forEach(negObj => {
                 if (negObj[4]) {
                     gameCanvasContext.save();
+                    gameCanvasContext.translate(negObj[0], negObj[1]);
+                    gameCanvasContext.scale(1 / 3, 1 / 3);
                     gameCanvasContext.rotate(-negObj[2]);
                     gameCanvasContext.drawImage(greenImage, 0, -negObj[3] * 3);
                     gameCanvasContext.strokeRect(0, -negObj[3] * 3 - 1, 200, 258);
@@ -214,7 +225,7 @@ addEventListener("click", e => {
 
             // draw beams
             gameCanvasContext.save();
-            gameCanvasContext.translate(400, 800);
+            gameCanvasContext.translate(beamX, beamY);
             previousClicks.forEach(click => {
                 gameCanvasContext.save();
                 gameCanvasContext.rotate(-click[0]);
@@ -225,11 +236,21 @@ addEventListener("click", e => {
 
             if (lastFrameClick) {
                 gameCanvasContext.save();
-                gameCanvasContext.translate(400, 800);
+                gameCanvasContext.translate(beamX, beamY);
                 gameCanvasContext.rotate(-lastFrameClick[0])
                 drawBeam(0);
                 gameCanvasContext.restore();
+                brainAngle = lastFrameClick[0];
             }
+
+            // draw brain
+            gameCanvasContext.save();
+            gameCanvasContext.translate(beamX, beamY);
+            gameCanvasContext.scale(0.5, 0.5);
+            gameCanvasContext.rotate(-brainAngle + Math.PI / 2);
+            gameCanvasContext.drawImage(brainImage, -100, -100);
+            gameCanvasContext.restore();
+
 
             // draw everything else 
             gameCanvasContext.font = "30px monospace";
@@ -275,7 +296,7 @@ addEventListener("click", e => {
                         ];
                         rectPoints.forEach(point => {
                             if (factObj[5]) {
-                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), 0, 400))) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), factObj[0]-beamX, beamY-factObj[1]))) {
                                     factObj[5] = false;
                                     score += 1;
                                 }
@@ -294,7 +315,7 @@ addEventListener("click", e => {
                         ];
                         rectPoints.forEach(point => {
                             if (negObj[4]) {
-                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), 0, 400))) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), negObj[0]-beamX, beamY-negObj[1]))) {
                                     negObj[4] = false;
                                     life -= 1;
                                 }
@@ -329,5 +350,5 @@ addEventListener("click", e => {
     // register a click, overwrite previous click if both happened between a frame
     if (gameStarted)
         if (e.button == 0)
-            lastFrameClick = [Math.atan2(-e.clientY + 800, e.clientX - 400), Date.now(), false];
+            lastFrameClick = [Math.atan2(-(e.clientY - beamY), e.clientX - beamX), Date.now(), false];
 });
