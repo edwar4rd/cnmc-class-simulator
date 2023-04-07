@@ -52,6 +52,11 @@ function drawLife(life) {
     gameCanvasContext.restore();
 }
 
+function drawScore(score) {
+    console.log(score);
+    gameCanvasContext.fillText(""+score, 600, 50);
+}
+
 function drawBeam(decay) {
     function singleBeam() {
         gameCanvasContext.beginPath();
@@ -106,7 +111,7 @@ let gameCanvas = document.getElementById("game-main-canvas");
 let gameCanvasContext = gameCanvas.getContext("2d");
 let lastFrameClick = null;
 let previousClick = [];
-let point = 0;
+let score = 5;
 
 setInterval(() => {
     // Render Scene
@@ -144,19 +149,19 @@ setInterval(() => {
 
     gameCanvasContext.save();
     gameCanvasContext.translate(400, 400);
-    gameCanvasContext.scale(1/3, 1/3);
+    gameCanvasContext.scale(1 / 3, 1 / 3);
     gameNegObjs.forEach(negObj => {
-        if(negObj[4]) {
+        if (negObj[4]) {
             gameCanvasContext.strokeStyle = "rgb(20,255,60)";
             gameCanvasContext.lineWidth = 5;
             gameCanvasContext.save();
             gameCanvasContext.rotate(-negObj[2]);
-            gameCanvasContext.drawImage(greenImage, 0, -negObj[3]*3);
+            gameCanvasContext.drawImage(greenImage, 0, -negObj[3] * 3);
             gameCanvasContext.restore();
 
             gameCanvasContext.save();
             gameCanvasContext.rotate(-negObj[2]);
-            gameCanvasContext.strokeRect(0, -negObj[3]*3 - 1, 200, 258);
+            gameCanvasContext.strokeRect(0, -negObj[3] * 3 - 1, 200, 258);
             gameCanvasContext.restore();
 
             let rectPoints = [
@@ -169,7 +174,7 @@ setInterval(() => {
             rectPoints.forEach(point => {
                 // gameCanvasContext.fillRect(...tranlateCoor(...scaleCoor(...rotateCoor(...point, negObj[2]), 1, -1), 0, 0), 10, 10);
             });
-            gameCanvasContext.scale(1/3, 1/3);
+            gameCanvasContext.scale(1 / 3, 1 / 3);
         }
     });
     gameCanvasContext.restore();
@@ -182,7 +187,7 @@ setInterval(() => {
     previousClick.forEach(click => {
         gameCanvasContext.save();
         gameCanvasContext.rotate(-click[0]);
-        drawBeam((Date.now() - click[1])/400);
+        drawBeam((Date.now() - click[1]) / 400);
         gameCanvasContext.restore();
     });
     if (lastFrameClick) {
@@ -192,7 +197,7 @@ setInterval(() => {
         previousClick.push(lastFrameClick);
         gameCanvasContext.restore();
         gameFactObjs.forEach(factObj => {
-            if(factObj[5]) {
+            if (factObj[5]) {
                 let rectPoints = [
                     [-2, factObj[4] - 1],
                     [-2, 32 + factObj[4] - 1],
@@ -200,15 +205,15 @@ setInterval(() => {
                     [-2 + 18 * factLength[factObj[3]] + 4, 32 + factObj[4] - 1]
                 ];
                 rectPoints.forEach(point => {
-                    if(pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), 0, 400))) {
+                    if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), 0, 400))) {
                         factObj[5] = false;
-                        point += 1;
+                        score += 1;
                     }
                 });
             }
         });
         gameNegObjs.forEach(negObj => {
-            if(negObj[4]) {
+            if (negObj[4]) {
                 let rectPoints = [
                     [0, negObj[3]],
                     [0, negObj[3] - 258 / 3],
@@ -216,8 +221,8 @@ setInterval(() => {
                     [0 + 200 / 3, negObj[3] - 258 / 3],
                 ];
                 rectPoints.forEach(point => {
-                    if(pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), 0, 400))) {
-                        if(negObj[4]) {
+                    if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), 0, 400))) {
+                        if (negObj[4]) {
                             negObj[4] = false;
                             life -= 1;
                         }
@@ -229,6 +234,9 @@ setInterval(() => {
     }
     gameCanvasContext.restore();
     drawLife(life);
+    gameCanvasContext.font = "30px monospace";
+    gameCanvasContext.fillStyle = "rgb(20,30,30)";
+    drawScore(score);
 
 
 
@@ -248,7 +256,7 @@ setInterval(() => {
     while (gameNegObjs.length > 0 && (gameNegObjs[0][3] > 500)) {
         gameNegObjs.shift();
     }
-    
+
 }, 17);
 
 setInterval(() => {
@@ -261,7 +269,7 @@ setInterval(() => {
         let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), true];
         gameNegObjs.push(newObject);
     }
-    
+
 }, 50);
 
 addEventListener("click", e => {
