@@ -51,6 +51,11 @@ const greenImage = (() => {
 
 const gameCanvas = document.getElementById("game-main-canvas");
 const gameCanvasContext = gameCanvas.getContext("2d");
+const maxTime = 15;
+const maxLife = 5;
+const cooldownTime = 2;
+const updateRate = 60;
+const objGenRate = 20;
 
 function rotateCoor(x, y, r) {
     return [x * Math.cos(r) - y * Math.sin(r), x * Math.sin(r) + y * Math.cos(r)];
@@ -70,7 +75,6 @@ function pointInBeam(beamRotation, beamWidth, pointX, pointY) {
 }
 
 function drawLife(life) {
-    const maxLife = 5;
     gameCanvasContext.save();
     gameCanvasContext.scale(0.2, 0.2);
     for (i = 0; i < maxLife; i++) {
@@ -84,12 +88,10 @@ function drawLife(life) {
 }
 
 function drawTime(time) {
-    console.log(time);
     gameCanvasContext.fillText("" + time, 400, 50);
 }
 
 function drawScore(score) {
-    console.log(score);
     gameCanvasContext.fillText("" + score, 600, 50);
 }
 
@@ -121,169 +123,211 @@ let gameNegObjs = [];
 let lastFrameClick = null;
 let previousClicks = [];
 let score = 0;
-let life = 5;
-let gameStart = Date.now();
+let life = maxLife;
+let gameStarted = false;
+let gameStartTime = Date.now();
+let brainAngle = 0;
 
-setInterval(() => {
-    // render scene
-    // clear everything
-    gameCanvasContext.clearRect(0, 0, 800, 800);
+let lastGameEnd = null;
 
-    // draw texts
-    gameCanvasContext.save();
-    gameCanvasContext.translate(400, 400);
-    gameCanvasContext.strokeStyle = "rgb(255,30,20)";
-    gameCanvasContext.fillStyle = "rgb(255,30,20)";
-    gameCanvasContext.font = "30px monospace";
-    gameCanvasContext.lineWdith = 3;
-    gameFactObjs.forEach(factObj => {
-        if (factObj[5]) {
+addEventListener("click", e => {
+    if (e.button != 0)
+        return;
+    if (lastGameEnd && ((Date.now() - lastGameEnd) < cooldownTime * 1000))
+        return;
+    if (gameStarted)
+        return;
+
+    gameFactObjs = [];
+    gameNegObjs = [];
+    lastFrameClick = null;
+    previousClicks = [];
+    score = 0;
+    life = maxLife;
+    gameStartTime = Date.now();
+    gameStarted = true;
+    brainAngle = 0;
+
+    let objGenIntervalHandle = setInterval(() => {
+        // randomly spawn objects
+        if (Math.random() < 0.5) {
+            let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), 0, true];
+            gameFactObjs.push(newObject);
+        }
+
+        if (Math.random() < 0.08) {
+            let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), true];
+            gameNegObjs.push(newObject);
+        }
+    }, 1000 / objGenRate);
+
+    let frameIntervalHandle = setInterval(() => {
+        // render everything
+        {
+            // clear everything
+            gameCanvasContext.clearRect(0, 0, 800, 800);
+
+            // draw texts
             gameCanvasContext.save();
-            // prevent text from being upside down
-            if (factObj[2] < Math.PI / 2 || Math.PI * 3 / 2 < factObj[2]) {
-                gameCanvasContext.rotate(-factObj[2]);
-                gameCanvasContext.fillText(factTexts[factObj[3]], 0, -factObj[4], 80);
-            } else {
-                gameCanvasContext.rotate(-(factObj[2] - Math.PI));
-                gameCanvasContext.fillText(factTexts[factObj[3]], -18 * factLength[factObj[3]] - 4, factObj[4] + 32, 80);
+            gameCanvasContext.translate(400, 400);
+            gameCanvasContext.strokeStyle = "rgb(255,30,20)";
+            gameCanvasContext.fillStyle = "rgb(255,30,20)";
+            gameCanvasContext.font = "30px monospace";
+            gameCanvasContext.lineWdith = 3;
+            gameFactObjs.forEach(factObj => {
+                if (factObj[5]) {
+                    gameCanvasContext.save();
+                    // prevent text from being upside down
+                    if (factObj[2] < Math.PI / 2 || Math.PI * 3 / 2 < factObj[2]) {
+                        gameCanvasContext.rotate(-factObj[2]);
+                        gameCanvasContext.fillText(factTexts[factObj[3]], 0, -factObj[4], 80);
+                    } else {
+                        gameCanvasContext.rotate(-(factObj[2] - Math.PI));
+                        gameCanvasContext.fillText(factTexts[factObj[3]], -18 * factLength[factObj[3]] - 4, factObj[4] + 32, 80);
+                    }
+                    gameCanvasContext.restore();
+
+                    gameCanvasContext.save();
+                    gameCanvasContext.rotate(-factObj[2]);
+                    gameCanvasContext.strokeRect(-2, -factObj[4] + 1, 18 * factLength[factObj[3]] + 4, -32);
+                    gameCanvasContext.restore();
+                }
+            });
+            gameCanvasContext.restore();
+
+            // draw snacks
+            gameCanvasContext.save();
+            gameCanvasContext.translate(400, 400);
+            gameCanvasContext.scale(1 / 3, 1 / 3);
+            gameCanvasContext.strokeStyle = "rgb(20,255,60)";
+            gameCanvasContext.lineWidth = 5;
+            gameNegObjs.forEach(negObj => {
+                if (negObj[4]) {
+                    gameCanvasContext.save();
+                    gameCanvasContext.rotate(-negObj[2]);
+                    gameCanvasContext.drawImage(greenImage, 0, -negObj[3] * 3);
+                    gameCanvasContext.strokeRect(0, -negObj[3] * 3 - 1, 200, 258);
+                    gameCanvasContext.restore();
+                }
+            });
+            gameCanvasContext.restore();
+
+            // draw beams
+            gameCanvasContext.save();
+            gameCanvasContext.translate(400, 800);
+            previousClicks.forEach(click => {
+                gameCanvasContext.save();
+                gameCanvasContext.rotate(-click[0]);
+                drawBeam((Date.now() - click[1]) / 250);
+                gameCanvasContext.restore();
+            });
+            gameCanvasContext.restore();
+
+            if (lastFrameClick) {
+                gameCanvasContext.save();
+                gameCanvasContext.translate(400, 800);
+                gameCanvasContext.rotate(-lastFrameClick[0])
+                drawBeam(0);
+                gameCanvasContext.restore();
             }
-            gameCanvasContext.restore();
 
-            gameCanvasContext.save();
-            gameCanvasContext.rotate(-factObj[2]);
-            gameCanvasContext.strokeRect(-2, -factObj[4] + 1, 18 * factLength[factObj[3]] + 4, -32);
-            gameCanvasContext.restore();
+            // draw everything else 
+            gameCanvasContext.font = "30px monospace";
+            gameCanvasContext.fillStyle = "rgb(20,30,30)";
+            drawScore(score);
+            drawTime((maxTime * 1000 - (Date.now() - gameStartTime)) / 1000);
+            drawLife(life);
         }
-    });
-    gameCanvasContext.restore();
 
-    // draw snacks
-    gameCanvasContext.save();
-    gameCanvasContext.translate(400, 400);
-    gameCanvasContext.scale(1 / 3, 1 / 3);
-    gameCanvasContext.strokeStyle = "rgb(20,255,60)";
-    gameCanvasContext.lineWidth = 5;
-    gameNegObjs.forEach(negObj => {
-        if (negObj[4]) {
-            gameCanvasContext.save();
-            gameCanvasContext.rotate(-negObj[2]);
-            gameCanvasContext.drawImage(greenImage, 0, -negObj[3] * 3);
-            gameCanvasContext.strokeRect(0, -negObj[3] * 3 - 1, 200, 258);
-            gameCanvasContext.restore();
-        }
-    });
-    gameCanvasContext.restore();
+        // update everything
+        {
+            // removed old objects
+            while (gameFactObjs.length > 0 && (gameFactObjs[0][4] > 500)) {
+                gameFactObjs.shift();
+            }
 
-    // draw beams
-    gameCanvasContext.save();
-    gameCanvasContext.translate(400, 800);
-    previousClicks.forEach(click => {
-        gameCanvasContext.save();
-        gameCanvasContext.rotate(-click[0]);
-        drawBeam((Date.now() - click[1]) / 250);
-        gameCanvasContext.restore();
-    });
-    gameCanvasContext.restore();
+            while (gameNegObjs.length > 0 && (gameNegObjs[0][3] > 500)) {
+                gameNegObjs.shift();
+            }
 
-    if (lastFrameClick) {
-        gameCanvasContext.save();
-        gameCanvasContext.translate(400, 800);
-        gameCanvasContext.rotate(-lastFrameClick[0])
-        drawBeam(0);
-        gameCanvasContext.restore();
-    }
+            while (previousClicks.length > 0 && (previousClicks[0][1] + 200 < Date.now())) {
+                previousClicks.shift();
+            }
 
-    // draw everything else 
-    gameCanvasContext.font = "30px monospace";
-    gameCanvasContext.fillStyle = "rgb(20,30,30)";
-    drawScore(score);
-    drawTime((60000 - (Date.now() - gameStart))/1000);
-    drawLife(life);
+            // move stuff
+            gameFactObjs.forEach(factObj => {
+                factObj[4] += 3 + Math.random() * 2;
+            });
 
+            gameNegObjs.forEach(negObj => {
+                negObj[3] += 4 + Math.random() * 4;
+            });
 
-    // update objects
-    // removed old objects
-    while (gameFactObjs.length > 0 && (gameFactObjs[0][4] > 500)) {
-        gameFactObjs.shift();
-    }
-    
-    while (gameNegObjs.length > 0 && (gameNegObjs[0][3] > 500)) {
-        gameNegObjs.shift();
-    }
-    
-    while (previousClicks.length > 0 && (previousClicks[0][1] + 200 < Date.now())) {
-        previousClicks.shift();
-    }
-    
-    // move stuff
-    gameFactObjs.forEach(factObj => {
-        factObj[4] += 3 + Math.random() * 2;
-    });
-
-    gameNegObjs.forEach(negObj => {
-        negObj[3] += 4 + Math.random() * 4;
-    });
-    
-    // handle click
-    if (lastFrameClick) {
-        gameFactObjs.forEach(factObj => {
-            if (factObj[5]) {
-                let rectPoints = [
-                    [-2, factObj[4] - 1],
-                    [-2, 32 + factObj[4] - 1],
-                    [-2 + 18 * factLength[factObj[3]] + 4, factObj[4] - 1],
-                    [-2 + 18 * factLength[factObj[3]] + 4, 32 + factObj[4] - 1]
-                ];
-                rectPoints.forEach(point => {
+            // handle click
+            if (lastFrameClick) {
+                gameFactObjs.forEach(factObj => {
                     if (factObj[5]) {
-                        if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), 0, 400))) {
-                            factObj[5] = false;
-                            score += 1;
-                        }
+                        let rectPoints = [
+                            [-2, factObj[4] - 1],
+                            [-2, 32 + factObj[4] - 1],
+                            [-2 + 18 * factLength[factObj[3]] + 4, factObj[4] - 1],
+                            [-2 + 18 * factLength[factObj[3]] + 4, 32 + factObj[4] - 1]
+                        ];
+                        rectPoints.forEach(point => {
+                            if (factObj[5]) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, factObj[2]), 0, 400))) {
+                                    factObj[5] = false;
+                                    score += 1;
+                                }
+                            }
+                        });
                     }
                 });
-            }
-        });
 
-        gameNegObjs.forEach(negObj => {
-            if (negObj[4]) {
-                let rectPoints = [
-                    [0, negObj[3]],
-                    [0, negObj[3] - 258 / 3],
-                    [0 + 200 / 3, negObj[3]],
-                    [0 + 200 / 3, negObj[3] - 258 / 3],
-                ];
-                rectPoints.forEach(point => {
+                gameNegObjs.forEach(negObj => {
                     if (negObj[4]) {
-                        if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), 0, 400))) {
-                            negObj[4] = false;
-                            life -= 1;
-                        }
+                        let rectPoints = [
+                            [0, negObj[3]],
+                            [0, negObj[3] - 258 / 3],
+                            [0 + 200 / 3, negObj[3]],
+                            [0 + 200 / 3, negObj[3] - 258 / 3],
+                        ];
+                        rectPoints.forEach(point => {
+                            if (negObj[4]) {
+                                if (pointInBeam(lastFrameClick[0], 80, ...tranlateCoor(...rotateCoor(...point, negObj[2]), 0, 400))) {
+                                    negObj[4] = false;
+                                    life -= 1;
+                                }
+                            }
+                        });
                     }
-                });
+                })
+
+                previousClicks.push(lastFrameClick);
+                lastFrameClick = null;
             }
-        })
+        }
 
-        previousClicks.push(lastFrameClick);
-        lastFrameClick = null;
-    }
-}, 17);
-
-setInterval(() => {
-    // randomly spawn objects
-    if (Math.random() < 0.5) {
-        let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), 0, true];
-        gameFactObjs.push(newObject);
-    }
-
-    if (Math.random() < 0.08) {
-        let newObject = [400, 400, Math.random() * 2.0 * Math.PI, Math.floor(Math.random() * factTexts.length), true];
-        gameNegObjs.push(newObject);
-    }
-}, 50);
+        // handle game end
+        if (life <= 0 || maxTime * 1000 <= (Date.now() - gameStartTime)) {
+            gameCanvasContext.clearRect(0, 0, 800, 800);
+            drawScore(score);
+            drawTime(maxTime * 1000 <= (Date.now() - gameStartTime) ? 0 : (maxTime * 1000 - (Date.now() - gameStartTime)) / 1000);
+            drawLife(life);
+            gameStarted = false;
+            clearInterval(frameIntervalHandle);
+            clearInterval(objGenIntervalHandle);
+            lastGameEnd = Date.now();
+            setTimeout(() => {
+                gameCanvasContext.clearRect(0, 0, 600, 800);
+            }, cooldownTime * 1000);
+        }
+    }, 1000 / updateRate);
+})
 
 addEventListener("click", e => {
     // register a click, overwrite previous click if both happened between a frame
-    if (e.button == 0)
-        lastFrameClick = [Math.atan2(-e.clientY + 800, e.clientX - 400), Date.now(), false];
+    if (gameStarted)
+        if (e.button == 0)
+            lastFrameClick = [Math.atan2(-e.clientY + 800, e.clientX - 400), Date.now(), false];
 });
